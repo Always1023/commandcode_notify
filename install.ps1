@@ -49,5 +49,4 @@ if (-not $NoSelfTest) {
     }
 }
 
-Write-Output ''
-Write-Output '下一步: 重启 Command Code，然后执行 commandcode mods list 确认出现 cmd-notify。'
+Write-Output "`n下一步: 重启 Command Code，然后执行 commandcode mods list 确认出现 cmd-notify。"

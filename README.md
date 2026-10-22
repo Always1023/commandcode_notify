@@ -37,11 +37,13 @@ Command Code 的扩展机制是 mods。内置 mod 共七项（`provider-copilot`
 同一个场景两种语言的实际输出：
 
 ```
-[done/zh-CN] ✅ 任务完成 · QuotaTool :: 3 轮 · 23.4k tokens / 修复了登录超时的重试逻辑
-[done/en]    ✅ Task finished · QuotaTool :: 3 turns · 23.4k tokens / 修复了登录超时的重试逻辑
+[done/zh] ✅ 任务完成 · acme-web :: 3 轮 · 23.4k tokens / 修复了登录超时的重试逻辑
+[done/en] ✅ Task finished · acme-web :: 3 turns · 23.4k tokens / fixed the login timeout retry logic
 ```
 
 日志行开头的 `[场景/语言]` 可以用来确认当前生效的是哪种语言。
+
+标题、轮数、token 用量、错误说明和「工具被拒」这类提示都由脚本按语言生成。正文里的回复摘要是模型的原话，不做翻译：英文环境下模型若用中文回答，摘要仍是中文。
 
 ## 安装
 

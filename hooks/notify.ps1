@@ -37,6 +37,8 @@ if (-not $langName) {
 }
 if (-not $langName) { $langName = $env:LANG }
 $isZh = "$langName" -like 'zh*'
+# 日志里只打基础语言，避免出现 [done/zh-CN] 与 [done/en] 混着看
+$langTag = if ($isZh) { 'zh' } else { 'en' }
 
 function Loc {
     param([string]$Zh, [string]$En)
@@ -170,11 +172,12 @@ if ($Message) {
 $titleText = if ($isZh) { $s.Zh } else { $s.En }
 $title = "$($s.Emoji) $titleText · $Project"
 $flat = ($lines -join ' / ')
+$tail = if ($flat) { " :: $flat" } else { '' }
 
 # 只拼标题不弹窗，用来验证
 if ($DryRun) {
     try {
-        $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario/$langName] dryrun $title :: $flat"
+        $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario/$langTag] dryrun $title$tail"
         Write-Log (Join-Path $root 'notify.log') $line
     } catch {}
     exit 0
@@ -298,8 +301,7 @@ if (-not $ok) {
 $log = Join-Path $root 'notify.log'
 try {
     if ((Test-Path $log) -and ((Get-Item $log).Length -gt 200KB)) { Remove-Item $log -Force }
-    $tail = if ($flat) { " :: $flat" } else { '' }
-    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario/$langName] ok=$ok $title$tail"
+    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario/$langTag] ok=$ok $title$tail"
     Write-Log $log $line
 } catch {}
 
