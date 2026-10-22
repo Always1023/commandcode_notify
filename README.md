@@ -27,8 +27,8 @@ Command Code 的扩展机制是 mods。内置 mod 共七项（`provider-copilot`
 前置条件：Windows 10 或 11、Command Code 1.82 及以上（实测 1.82.0）、Windows PowerShell 5.1。
 
 ```powershell
-git clone git@github-acc3:always1023/cmd-notify.git
-cd cmd-notify
+git clone https://github.com/Always1023/commandcode_notify.git
+cd commandcode_notify
 .\install.ps1
 ```
 
@@ -93,14 +93,13 @@ commandcode -p "只回复两个字：收到" --max-turns 2
 ## 目录结构
 
 ```
-cmd-notify/
+commandcode_notify/
 ├── install.ps1           安装脚本
 ├── uninstall.ps1         卸载脚本
 ├── mods/cmd-notify.ts    mod 本体，订阅事件
 ├── hooks/notify.ps1      发通知，画徽标
 └── examples/notify.config.json   配置样例
 ```
-
 ## 许可
 
 MIT，见 [LICENSE](LICENSE)。
