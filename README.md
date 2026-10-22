@@ -57,7 +57,11 @@ cd commandcode_notify
 
 `install.ps1` 做三件事：把 mod 复制到 `~/.commandcode/mods/`，把通知脚本复制到 `~/.commandcode/hooks/`，跑一次自检（只写日志，不弹窗）。
 
-重启 Command Code 生效。确认方式：
+重启 Command Code 生效。已经在跑的会话可以执行 `/reload`（重启进程并恢复会话），效果一样。
+
+注意 mod 只在**进程启动时**加载一次：新建会话、新开标签页都不会重新加载，必须重启进程或 `/reload`。装之前就开着的窗口，里面是没有这个 mod 的。
+
+确认方式：
 
 ```powershell
 commandcode mods list
@@ -106,6 +110,16 @@ commandcode -p "只回复两个字：收到" --max-turns 2
 - 通知中心里的历史记录无法用 `ToastNotificationManager.History.Clear()` 清除（该接口要求注册过的 AppID），需要手动关闭或使用「清除全部」。
 - TUI 下不等待通知进程结束；`cmd -p` 下会等待，否则通知进程会随父进程一起退出。
 - 走 mod 事件流而非 shell hooks，因此 plan 模式下仍会提醒（shell hooks 在 plan 模式会被完全跳过）。
+
+## 没有弹出通知
+
+按顺序排查：
+
+1. **装之前就开着的窗口里没有这个 mod**。mod 只在进程启动时加载，重启进程或执行 `/reload`。
+2. `commandcode mods list` 里没有 `cmd-notify`：重新执行 `.\install.ps1`。
+3. 系统设置里关闭了 Windows PowerShell 的通知。
+4. `~/.commandcode/hooks/notify.off` 存在（全部静音开关）。
+5. 看 `~/.commandcode/hooks/notify.log`：有记录但看不到通知 → 被系统抑制；没有记录 → mod 没触发，回到第 1 步。
 
 ## 卸载
 

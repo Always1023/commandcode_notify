@@ -49,4 +49,5 @@ if (-not $NoSelfTest) {
     }
 }
 
-Write-Output "`n下一步: 重启 Command Code，然后执行 commandcode mods list 确认出现 cmd-notify。"
+Write-Output "`n下一步: 重启 Command Code（已开着的会话可以直接执行 /reload），然后执行 commandcode mods list 确认出现 cmd-notify。"
+Write-Output 'mod 只在进程启动时加载一次，新建会话或新开标签页不会重新加载。'

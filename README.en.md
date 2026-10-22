@@ -57,7 +57,11 @@ cd commandcode_notify
 
 `install.ps1` does three things: copies the mod to `~/.commandcode/mods/`, copies the notification script to `~/.commandcode/hooks/`, and runs a self-test that only writes to the log.
 
-Restart Command Code for the mod to load. Confirm with:
+Restart Command Code for the mod to load. A session that is already running can use `/reload` instead, which restarts the process and restores the session.
+
+Mods load once per process: starting a new session or opening a new tab does not reload them. A window that was already open before the install has no mod in it.
+
+Confirm with:
 
 ```powershell
 commandcode mods list
@@ -106,6 +110,16 @@ Colors, glyphs, sounds and titles are in the `$scenes` table at the top of `hook
 - Notification history cannot be cleared with `ToastNotificationManager.History.Clear()`, because that API requires a registered AppID. Dismiss entries manually or use "Clear all".
 - In the TUI the mod does not wait for the notifier process; under `cmd -p` it does, otherwise the notifier would be killed together with its parent.
 - Events are read from the mod stream rather than shell hooks, so notifications still fire in plan mode (shell hooks are skipped entirely there).
+
+## No notification shows up
+
+Check in this order:
+
+1. **A window opened before the install has no mod in it.** Mods load once per process; restart it or run `/reload`.
+2. `commandcode mods list` does not list `cmd-notify`: run `.\install.ps1` again.
+3. Notifications for Windows PowerShell are turned off in system settings.
+4. `~/.commandcode/hooks/notify.off` exists (the global mute switch).
+5. Check `~/.commandcode/hooks/notify.log`: a line but no toast means the system suppressed it; no line means the mod did not fire, so go back to step 1.
 
 ## Uninstall
 
