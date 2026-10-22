@@ -1,0 +1,7 @@
+* text=auto
+
+# PowerShell 脚本保持 CRLF，并保留 UTF-8 BOM（Windows PowerShell 5.1 依赖 BOM 识别中文）
+*.ps1 text eol=crlf
+*.ts text eol=lf
+*.md text eol=lf
+*.json text eol=lf

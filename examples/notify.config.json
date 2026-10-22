@@ -1,0 +1,6 @@
+{
+  "disabled": [
+    "retry",
+    "compact"
+  ]
+}

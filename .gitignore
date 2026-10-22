@@ -1,0 +1,8 @@
+# 运行产物
+notify.log
+*.log
+
+# 系统文件
+Thumbs.db
+desktop.ini
+.DS_Store
