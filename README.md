@@ -12,17 +12,36 @@ Command Code 的扩展机制是 mods。内置 mod 共七项（`provider-copilot`
 
 ## 场景与样式
 
-| 场景 | 触发事件 | 标题 | 徽标底色 | 声音 |
+| 场景 | 触发事件 | 标题（中文 / English） | 徽标底色 | 声音 |
 |---|---|---|---|---|
-| `done` | 一轮对话正常结束 | ✅ 任务完成 | 绿 | Notification.Default |
-| `error` | `run_error`，或 `stopReason` 为 `error` | ❌ 运行出错 | 红 | Notification.Reminder |
-| `denied` | `tool_denied` | 🚫 权限被拒 | 橙 | Notification.IM |
-| `subagent` | `subagent_stop` | 🤖 子代理结束 | 蓝 | Notification.Mail |
-| `compact` | `compaction_done` | 🗜️ 上下文压缩 | 紫 | Notification.SMS |
-| `retry` | `api_retry` | ⏳ 接口重试 | 黄 | Notification.Reminder |
-| `interrupted` | `stopReason` 为 `interrupted` | ⏹️ 已中断 | 灰 | 无 |
+| `done` | 一轮对话正常结束 | ✅ 任务完成 / Task finished | 绿 | Notification.Default |
+| `error` | `run_error`，或 `stopReason` 为 `error` | ❌ 运行出错 / Run failed | 红 | Notification.Reminder |
+| `denied` | `tool_denied` | 🚫 权限被拒 / Permission denied | 橙 | Notification.IM |
+| `subagent` | `subagent_stop` | 🤖 子代理结束 / Subagent finished | 蓝 | Notification.Mail |
+| `compact` | `compaction_done` | 🗜️ 上下文压缩 / Context compacted | 紫 | Notification.SMS |
+| `retry` | `api_retry` | ⏳ 接口重试 / API retry | 黄 | Notification.Reminder |
+| `interrupted` | `stopReason` 为 `interrupted` | ⏹️ 已中断 / Interrupted | 灰 | 无 |
 
 正文带关键信息：完成时是「轮数 · token 用量」加最后一句回复的摘要；重试时是「第几次 · 多久后重试」加错误原因；权限被拒时是工具名。
+
+## 语言
+
+通知文案跟随系统界面语言自动切换：系统是中文（`zh*`）用中文，其余用英文。标题和正文一起切换，不只是标题。
+
+判定顺序：
+
+1. 命令行参数 `-Lang zh|en`
+2. `notify.config.json` 的 `lang` 字段
+3. 系统界面语言，取 `[System.Globalization.CultureInfo]::CurrentUICulture`
+
+同一个场景两种语言的实际输出：
+
+```
+[done/zh-CN] ✅ 任务完成 · QuotaTool :: 3 轮 · 23.4k tokens / 修复了登录超时的重试逻辑
+[done/en]    ✅ Task finished · QuotaTool :: 3 turns · 23.4k tokens / 修复了登录超时的重试逻辑
+```
+
+日志行开头的 `[场景/语言]` 可以用来确认当前生效的是哪种语言。
 
 ## 安装
 
@@ -70,12 +89,13 @@ commandcode -p "只回复两个字：收到" --max-turns 2
 | 全部静音 | 建空文件 `~/.commandcode/hooks/notify.off`，删掉即恢复 |
 | 关闭部分场景 | `notify.config.json` 写 `{"disabled":["retry","compact","subagent"]}` |
 | 固定标题里的项目名 | `notify.config.json` 写 `{"label":"我的项目"}` |
+| 强制通知语言 | `notify.config.json` 写 `{"lang":"en"}` 或 `{"lang":"zh"}` |
 
 默认标题里的项目名取自 `cmd.cwd` 的目录名，超过 26 个字符截断。
 
 ## 自定义样式
 
-颜色、图形、声音和标题文案在 `hooks/notify.ps1` 顶部的 `$scenes` 表。徽标是首次运行时用 `System.Drawing` 画出来的 PNG，缓存于 `~/.commandcode/hooks/badges/`，改完样式后删除该目录即可重画。
+颜色、图形、声音和标题文案在 `hooks/notify.ps1` 顶部的 `$scenes` 表。每个场景有 `Zh` 和 `En` 两个标题字段，加语言只需照此新增一列。徽标是首次运行时用 `System.Drawing` 画出来的 PNG，缓存于 `~/.commandcode/hooks/badges/`，改完样式后删除该目录即可重画。
 
 ## 已知限制
 

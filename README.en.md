@@ -12,17 +12,36 @@ This project fills that gap with a mod that subscribes to the `AgentEvent` strea
 
 ## Scenarios
 
-| Scenario | Trigger | Title | Badge color | Sound |
+| Scenario | Trigger | Title (English / 中文) | Badge color | Sound |
 |---|---|---|---|---|
-| `done` | a turn ends normally | ✅ 任务完成 | green | Notification.Default |
-| `error` | `run_error`, or `stopReason` is `error` | ❌ 运行出错 | red | Notification.Reminder |
-| `denied` | `tool_denied` | 🚫 权限被拒 | orange | Notification.IM |
-| `subagent` | `subagent_stop` | 🤖 子代理结束 | blue | Notification.Mail |
-| `compact` | `compaction_done` | 🗜️ 上下文压缩 | purple | Notification.SMS |
-| `retry` | `api_retry` | ⏳ 接口重试 | yellow | Notification.Reminder |
-| `interrupted` | `stopReason` is `interrupted` | ⏹️ 已中断 | gray | none |
+| `done` | a turn ends normally | ✅ Task finished / 任务完成 | green | Notification.Default |
+| `error` | `run_error`, or `stopReason` is `error` | ❌ Run failed / 运行出错 | red | Notification.Reminder |
+| `denied` | `tool_denied` | 🚫 Permission denied / 权限被拒 | orange | Notification.IM |
+| `subagent` | `subagent_stop` | 🤖 Subagent finished / 子代理结束 | blue | Notification.Mail |
+| `compact` | `compaction_done` | 🗜️ Context compacted / 上下文压缩 | purple | Notification.SMS |
+| `retry` | `api_retry` | ⏳ API retry / 接口重试 | yellow | Notification.Reminder |
+| `interrupted` | `stopReason` is `interrupted` | ⏹️ Interrupted / 已中断 | gray | none |
 
-The toast title is in Chinese by design; only the emoji and badge color differ per scenario. The body carries the details: turn count, token usage and a snippet of the final reply for `done`; attempt number, delay and the error for `retry`; the tool name for `denied`.
+The body carries the details: turn count, token usage and a snippet of the final reply for `done`; attempt number, delay and the error for `retry`; the tool name for `denied`.
+
+## Language
+
+Titles and bodies follow the system UI language: Chinese (`zh*`) gets Chinese text, everything else gets English. The language switches both the title and the body, not just the title.
+
+Resolution order:
+
+1. The `-Lang zh|en` command-line argument
+2. The `lang` field in `notify.config.json`
+3. System UI language, from `[System.Globalization.CultureInfo]::CurrentUICulture`
+
+The same event in both languages:
+
+```
+[done/zh-CN] ✅ 任务完成 · QuotaTool :: 3 轮 · 23.4k tokens / 修复了登录超时的重试逻辑
+[done/en]    ✅ Task finished · QuotaTool :: 3 turns · 23.4k tokens / 修复了登录超时的重试逻辑
+```
+
+The `[scenario/language]` prefix in each log line tells you which language is active.
 
 ## Install
 
@@ -70,12 +89,13 @@ Configuration and runtime data live in `~/.commandcode/hooks/`.
 | Mute everything | Create an empty `~/.commandcode/hooks/notify.off`; delete it to restore |
 | Disable some scenarios | `notify.config.json` with `{"disabled":["retry","compact","subagent"]}` |
 | Pin the project name in titles | `notify.config.json` with `{"label":"my-project"}` |
+| Force a language | `notify.config.json` with `{"lang":"en"}` or `{"lang":"zh"}` |
 
 By default the project name in the title comes from the basename of `cmd.cwd`, truncated at 26 characters.
 
 ## Customizing
 
-Colors, glyphs, sounds and titles are in the `$scenes` table at the top of `hooks/notify.ps1`. Badges are PNGs drawn with `System.Drawing` on first run and cached in `~/.commandcode/hooks/badges/`; delete that directory to redraw them after changing styles.
+Colors, glyphs, sounds and titles are in the `$scenes` table at the top of `hooks/notify.ps1`. Each scenario has `Zh` and `En` title fields, so adding a language is one more column. Badges are PNGs drawn with `System.Drawing` on first run and cached in `~/.commandcode/hooks/badges/`; delete that directory to redraw them after changing styles.
 
 ## Limitations
 

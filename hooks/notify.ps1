@@ -1,12 +1,15 @@
 ﻿# Command Code 场景化提醒
-# 由 mods/cmd-notify.ts 调用；也可单独手动运行测试
-# 用法: notify.ps1 -Scenario done -Message "3 轮 · 12.3k tokens" -Project "my-app"
+# 由 mods/cmd-notify.ts 调用；也可手动测试
+# 用法: notify.ps1 -Scenario done -Project "my-app" -Data64 "<base64 的 JSON>"
+# 语言: -Lang zh|en|auto，默认 auto（跟随系统界面语言）
 # 关闭: 在同目录建一个空的 notify.off 文件
 
 param(
     [string]$Scenario = 'done',
-    [string]$Message = '',
     [string]$Project = '',
+    [string]$Data64 = '',
+    [string]$Message = '',
+    [string]$Lang = '',
     [switch]$DryRun,
     [switch]$Debug
 )
@@ -16,21 +19,78 @@ $root = Join-Path $env:USERPROFILE '.commandcode\hooks'
 
 if (Test-Path (Join-Path $root 'notify.off')) { exit 0 }
 
-# 场景表：emoji(颜色) / 标题 / 徽标底色 / 徽标图形 / 声音
+# ---- 配置 ----
+$cfg = $null
+$cfgPath = Join-Path $root 'notify.config.json'
+if (Test-Path $cfgPath) {
+    try { $cfg = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json } catch {}
+}
+
+# ---- 语言：-Lang > 配置 lang > 系统界面语言 ----
+$langName = $Lang
+if (-not $langName -and $cfg -and $cfg.lang) { $langName = [string]$cfg.lang }
+if (-not $langName -or $langName -eq 'auto') {
+    try { $langName = [System.Globalization.CultureInfo]::CurrentUICulture.Name } catch {}
+}
+if (-not $langName) {
+    try { $langName = [System.Globalization.CultureInfo]::InstalledUICulture.Name } catch {}
+}
+if (-not $langName) { $langName = $env:LANG }
+$isZh = "$langName" -like 'zh*'
+
+function Loc {
+    param([string]$Zh, [string]$En)
+    if ($isZh) { return $Zh }
+    return $En
+}
+
+function Fmt-Tokens {
+    param($n)
+    $v = 0.0
+    if (-not [double]::TryParse([string]$n, [ref]$v)) { return '' }
+    if ($v -le 0) { return '' }
+    $inv = [System.Globalization.CultureInfo]::InvariantCulture
+    if ($v -ge 1000000) { return (($v / 1000000).ToString('0.#', $inv) + 'M tokens') }
+    if ($v -ge 1000) { return (($v / 1000).ToString('0.#', $inv) + 'k tokens') }
+    return ([int]$v).ToString($inv) + ' tokens'
+}
+
+# 日志用单次追加，避免多条通知并发写时把行写花。
+# 首次写入带 BOM：Windows PowerShell 5.1 的 Get-Content 靠 BOM 认 UTF-8。
+function Write-Log {
+    param([string]$Path, [string]$Line)
+    $text = $Line + "`r`n"
+    if (Test-Path $Path) {
+        [System.IO.File]::AppendAllText($Path, $text, (New-Object System.Text.UTF8Encoding $false))
+    } else {
+        [System.IO.File]::WriteAllText($Path, $text, (New-Object System.Text.UTF8Encoding $true))
+    }
+}
+
+# ---- 场景表 ----
 $scenes = @{
-    'done'        = @{ Emoji = '✅'; Title = '任务完成';   Color = '#22C55E'; Glyph = 'check'; Sound = 'ms-winsoundevent:Notification.Default' }
-    'error'       = @{ Emoji = '❌'; Title = '运行出错';   Color = '#EF4444'; Glyph = 'cross'; Sound = 'ms-winsoundevent:Notification.Reminder' }
-    'denied'      = @{ Emoji = '🚫'; Title = '权限被拒';   Color = '#F59E0B'; Glyph = 'bang';  Sound = 'ms-winsoundevent:Notification.IM' }
-    'subagent'    = @{ Emoji = '🤖'; Title = '子代理结束'; Color = '#3B82F6'; Glyph = 'dot';   Sound = 'ms-winsoundevent:Notification.Mail' }
-    'compact'     = @{ Emoji = '🗜️'; Title = '上下文压缩'; Color = '#A855F7'; Glyph = 'dot';   Sound = 'ms-winsoundevent:Notification.SMS' }
-    'retry'       = @{ Emoji = '⏳'; Title = '接口重试';   Color = '#EAB308'; Glyph = 'dot';   Sound = 'ms-winsoundevent:Notification.Reminder' }
-    'interrupted' = @{ Emoji = '⏹️'; Title = '已中断';     Color = '#6B7280'; Glyph = 'bars';  Sound = '' }
+    'done'        = @{ Emoji = '✅'; Zh = '任务完成'; En = 'Task finished';       Color = '#22C55E'; Glyph = 'check'; Sound = 'ms-winsoundevent:Notification.Default' }
+    'error'       = @{ Emoji = '❌'; Zh = '运行出错'; En = 'Run failed';          Color = '#EF4444'; Glyph = 'cross'; Sound = 'ms-winsoundevent:Notification.Reminder' }
+    'denied'      = @{ Emoji = '🚫'; Zh = '权限被拒'; En = 'Permission denied';   Color = '#F59E0B'; Glyph = 'bang';  Sound = 'ms-winsoundevent:Notification.IM' }
+    'subagent'    = @{ Emoji = '🤖'; Zh = '子代理结束'; En = 'Subagent finished'; Color = '#3B82F6'; Glyph = 'dot';   Sound = 'ms-winsoundevent:Notification.Mail' }
+    'compact'     = @{ Emoji = '🗜️'; Zh = '上下文压缩'; En = 'Context compacted'; Color = '#A855F7'; Glyph = 'dot';   Sound = 'ms-winsoundevent:Notification.SMS' }
+    'retry'       = @{ Emoji = '⏳'; Zh = '接口重试'; En = 'API retry';           Color = '#EAB308'; Glyph = 'dot';   Sound = 'ms-winsoundevent:Notification.Reminder' }
+    'interrupted' = @{ Emoji = '⏹️'; Zh = '已中断'; En = 'Interrupted';           Color = '#6B7280'; Glyph = 'bars';  Sound = '' }
 }
 
 $s = $scenes[$Scenario]
 if (-not $s) { $s = $scenes['done'] }
 
-# 没有显式参数时，回落到读钩子 stdin 的 JSON
+# ---- 读取 mod 传来的结构化数据 ----
+$data = $null
+if ($Data64) {
+    try {
+        $json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($Data64))
+        $data = $json | ConvertFrom-Json
+    } catch {}
+}
+
+# 没有显式 Project 时，回落到读钩子 stdin 的 JSON
 if (-not $Project -and [Console]::IsInputRedirected) {
     $raw = [Console]::In.ReadToEnd()
     if ($raw) {
@@ -40,27 +100,82 @@ if (-not $Project -and [Console]::IsInputRedirected) {
         } catch {}
     }
 }
-if (-not $Project) { $Project = 'Command Code' }
 
-# 可选：统一改标签 —— notify.config.json 里写 {"label":"我的项目"}
-$cfgPath = Join-Path $root 'notify.config.json'
-if (Test-Path $cfgPath) {
-    try {
-        $cfg = Get-Content $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($cfg.label) { $Project = [string]$cfg.label }
-    } catch {}
-}
+if ($cfg -and $cfg.label) { $Project = [string]$cfg.label }
+if (-not $Project) { $Project = 'Command Code' }
 if ($Project.Length -gt 26) { $Project = $Project.Substring(0, 25) + '…' }
 
-$title = "$($s.Emoji) $($s.Title) · $Project"
-$flat = ($Message -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) -join ' / '
-$tail = if ($flat) { " :: $flat" } else { '' }
+# ---- 拼正文 ----
+$tokens = if ($data) { Fmt-Tokens $data.tokens } else { '' }
+
+$meta = @()
+if ($data -and $data.turns) {
+    $t = [int]$data.turns
+    $turnText = if ($isZh) { "$t 轮" } elseif ($t -eq 1) { '1 turn' } else { "$t turns" }
+    $meta += $turnText
+}
+if ($tokens) { $meta += $tokens }
+$metaText = if ($meta.Count -gt 0) { $meta -join ' · ' } else { '' }
+
+$lines = @()
+if ($Message) {
+    $lines = @($Message -split "`r?`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+} else {
+    switch ($Scenario) {
+        'done' {
+            if ($metaText) { $lines += $metaText }
+            if ($data -and $data.snippet) { $lines += [string]$data.snippet }
+        }
+        'interrupted' {
+            if ($metaText) { $lines += $metaText }
+            $lines += (Loc '已取消这次运行' 'Run cancelled')
+        }
+        'error' {
+            if ($data -and $data.snippet) { $lines += [string]$data.snippet }
+            else { $lines += (Loc '运行以错误结束' 'Run ended with an error') }
+        }
+        'denied' {
+            if ($data -and $data.tool) {
+                $lines += (Loc "工具 $($data.tool) 被拒绝执行" "Tool $($data.tool) was denied")
+            } else {
+                $lines += (Loc '有工具调用被拒绝执行' 'A tool call was denied')
+            }
+        }
+        'subagent' {
+            $type = if ($data -and $data.subagentType) { [string]$data.subagentType } else { Loc '子代理' 'Subagent' }
+            $lines += (Loc "$type 已结束" "$type finished")
+            if ($tokens) { $lines += $tokens }
+        }
+        'compact' {
+            $saved = if ($data) { Fmt-Tokens $data.saved } else { '' }
+            if ($saved) { $lines += (Loc "省下 $saved" "Saved $saved") }
+            else { $lines += (Loc '上下文已压缩' 'Context compacted') }
+        }
+        'retry' {
+            $r = @()
+            if ($data -and $data.attempt) {
+                $a = [int]$data.attempt
+                $r += (Loc "第 $a 次" "attempt $a")
+            }
+            if ($data -and $data.delay) {
+                $sec = [math]::Round([double]$data.delay / 1000)
+                $r += (Loc "$sec 秒后重试" "retry in ${sec}s")
+            }
+            if ($r.Count -gt 0) { $lines += ($r -join ' · ') }
+            if ($data -and $data.detail) { $lines += [string]$data.detail }
+        }
+    }
+}
+
+$titleText = if ($isZh) { $s.Zh } else { $s.En }
+$title = "$($s.Emoji) $titleText · $Project"
+$flat = ($lines -join ' / ')
 
 # 只拼标题不弹窗，用来验证
 if ($DryRun) {
     try {
-        "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario] dryrun $title$tail" |
-            Out-File -Append -Encoding utf8 (Join-Path $root 'notify.log')
+        $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario/$langName] dryrun $title :: $flat"
+        Write-Log (Join-Path $root 'notify.log') $line
     } catch {}
     exit 0
 }
@@ -145,8 +260,8 @@ try {
     if ($s.Sound) { $audio = "<audio src=`"$($s.Sound)`"/>" }
 
     $body = "<text>$t</text>"
-    foreach ($line in ($Message -split "`r?`n")) {
-        $ln = $line.Trim()
+    foreach ($line in $lines) {
+        $ln = ([string]$line).Trim()
         if ($ln) { $body += "<text>$([System.Security.SecurityElement]::Escape($ln))</text>" }
     }
 
@@ -168,7 +283,7 @@ if (-not $ok) {
             $ni.Icon = [System.Drawing.SystemIcons]::Information
         }
         $ni.Visible = $true
-        $ni.ShowBalloonTip(6000, $title, $Message, [System.Windows.Forms.ToolTipIcon]::Info)
+        $ni.ShowBalloonTip(6000, $title, ($lines -join "`n"), [System.Windows.Forms.ToolTipIcon]::Info)
         Start-Sleep -Seconds 6
         $ni.Dispose()
         $ok = $true
@@ -183,7 +298,9 @@ if (-not $ok) {
 $log = Join-Path $root 'notify.log'
 try {
     if ((Test-Path $log) -and ((Get-Item $log).Length -gt 200KB)) { Remove-Item $log -Force }
-    "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario] ok=$ok $title$tail" | Out-File -Append -Encoding utf8 $log
+    $tail = if ($flat) { " :: $flat" } else { '' }
+    $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') [$Scenario/$langName] ok=$ok $title$tail"
+    Write-Log $log $line
 } catch {}
 
 exit 0
