@@ -2,6 +2,8 @@
 
 Command Code 的场景化桌面提醒。按事件类型弹出不同颜色、不同声音的 Windows 通知，用于在长任务期间判断「跑完了」「出错了」「在等你放行」。
 
+**中文** | [English](README.en.md)
+
 ## 背景
 
 Command Code 的扩展机制是 mods。内置 mod 共七项（`provider-copilot`、`provider-openai`、`provider-anthropic`、`update-notice`、`acp`、`peek`、`herdr`），没有通知类；shell hooks 只有 `PreToolUse`、`PostToolUse`、`Stop`、`SessionStart` 四个事件，也没有 `Notification` 事件。
@@ -94,6 +96,8 @@ commandcode -p "只回复两个字：收到" --max-turns 2
 
 ```
 commandcode_notify/
+├── README.md             中文说明
+├── README.en.md          English
 ├── install.ps1           安装脚本
 ├── uninstall.ps1         卸载脚本
 ├── mods/cmd-notify.ts    mod 本体，订阅事件
